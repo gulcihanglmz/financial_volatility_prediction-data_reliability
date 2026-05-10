@@ -1,0 +1,39 @@
+# Virtual Environment
+venv/
+env/
+*.egg-info/
+__pycache__/
+
+# Data files (CSV'ler)
+data/*.csv
+data/*.xlsx
+data/*.json
+
+# Models (eğitilmiş modeller - büyük ve local)
+models/*.pkl
+models/*.joblib
+
+# IDE
+.vscode/
+.idea/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment variables
+.env
+.env.local
+
+# System
+*.log
+*.tmp
+
+# Thesis
+THESIS_CHAPTERS.md
