@@ -52,10 +52,10 @@ Risk Level: <span class="badge">{risk}</span></p>
 
 <h2>Model Performance</h2>
 <table>
-<tr><th>Model</th><th>RMSE</th><th>MAE</th><th>MAPE</th><th>R2</th><th>Dir. Accuracy</th></tr>
+<tr><th>Model</th><th>Accuracy (%)</th><th>Precision (%)</th><th>Recall (%)</th><th>F1-Score</th></tr>
 {''.join(
-    f"<tr><td>{m}</td><td>{v['RMSE']:.4f}</td><td>{v['MAE']:.4f}</td>"
-    f"<td>{v['MAPE']:.1f}%</td><td>{v['R2']:.3f}</td><td>{v['Dir_Accuracy']:.1%}</td></tr>"
+    f"<tr><td>{m}</td><td>{v['Accuracy']:.2f}</td><td>{v['Precision']:.2f}</td>"
+    f"<td>{v['Recall']:.2f}</td><td>{v['F1']:.2f}</td></tr>"
     for m, v in metrics.items()
 )}
 </table>
