@@ -230,21 +230,26 @@ def forecast_chart(forecast_df: pd.DataFrame, hist_df: pd.DataFrame, dark_mode: 
 def model_comparison_bar(metrics: dict, dark_mode: bool) -> go.Figure:
     t = get_theme(dark_mode)
     models = list(metrics.keys())
-    rmse = [metrics[m]["RMSE"] for m in models]
-    mae = [metrics[m]["MAE"] for m in models]
-    r2 = [metrics[m]["R2"] for m in models]
+    accuracy = [metrics[m]["Accuracy"] for m in models]
+    precision = [metrics[m]["Precision"] for m in models]
+    recall = [metrics[m]["Recall"] for m in models]
     colors = [metrics[m]["color"] for m in models]
 
-    fig = make_subplots(rows=1, cols=3, subplot_titles=["RMSE (lower better)", "MAE (lower better)", "R² (higher better)"])
+    fig = make_subplots(
+        rows=1,
+        cols=3,
+        subplot_titles=["Accuracy (%)", "Precision (%)", "Recall (%)"],
+    )
 
-    for i, (vals, name) in enumerate([(rmse, "RMSE"), (mae, "MAE"), (r2, "R2")], 1):
+    for i, vals in enumerate([accuracy, precision, recall], 1):
         fig.add_trace(go.Bar(
             x=models, y=vals,
             marker_color=colors,
             marker_line_width=0,
             showlegend=False,
-            text=[f"{v:.4f}" for v in vals],
+            text=[f"{v:.2f}%" for v in vals],
             textposition="outside",
+            cliponaxis=False,
             textfont=dict(color=t["text"], size=10),
         ), row=1, col=i)
 
@@ -253,13 +258,14 @@ def model_comparison_bar(metrics: dict, dark_mode: bool) -> go.Figure:
     for key in ["xaxis", "xaxis2", "xaxis3"]:
         layout[key] = dict(gridcolor=t["grid"], tickfont=dict(color=t["subtext"], size=11))
     for key in ["yaxis", "yaxis2", "yaxis3"]:
-        layout[key] = dict(gridcolor=t["grid"], tickfont=dict(color=t["subtext"], size=10), showgrid=True)
-    layout["annotations"] = [
-        dict(text=s, x=x, y=1.08, xref="paper", yref="paper",
-             showarrow=False, font=dict(color=t["subtext"], size=11))
-        for s, x in zip(["RMSE (lower = better)", "MAE (lower = better)", "R2 (higher = better)"],
-                        [0.12, 0.5, 0.88])
-    ]
+        layout[key] = dict(
+            gridcolor=t["grid"],
+            tickfont=dict(color=t["subtext"], size=10),
+            showgrid=True,
+            range=[0, 108],
+            ticksuffix="%",
+        )
+    layout["margin"] = dict(t=90, b=40, l=40, r=20)
     fig.update_layout(**layout)
     return fig
 

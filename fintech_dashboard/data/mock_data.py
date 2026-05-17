@@ -68,11 +68,16 @@ def generate_volatility_series(price_df, window=20):
     # GBM predictions
     gbm_pred = realized_vol * (1 + np.random.normal(0, 0.06, len(realized_vol)))
 
+    # Data Reliability Score (mock - asset-independent for mock data)
+    data_reliability = 85 + np.random.normal(0, 5, len(realized_vol))
+    data_reliability = np.clip(data_reliability, 0, 100)
+
     df = price_df.copy()
     df["realized_vol"] = realized_vol
     df["lstm_pred"] = np.clip(lstm_pred, 0.01, 1.0)
     df["arima_pred"] = np.clip(arima_pred, 0.01, 1.0)
     df["gbm_pred"] = np.clip(gbm_pred, 0.01, 1.0)
+    df["data_reliability"] = data_reliability
     return df
 
 
@@ -109,29 +114,33 @@ def generate_future_forecast(n_days=30, last_vol=0.18, seed=77):
 def generate_model_metrics():
     """Generate model comparison metrics."""
     models = {
-        "LSTM": {
-            "RMSE": 0.0182,
-            "MAE": 0.0134,
-            "MAPE": 8.7,
-            "R2": 0.912,
-            "Dir_Accuracy": 0.743,
+        "Logistic Regression": {
+            "Accuracy": 74.21,
+            "Precision": 71.76,
+            "Recall": 87.77,
+            "F1": 78.96,
             "color": "#00d4aa",
         },
-        "ARIMA": {
-            "RMSE": 0.0261,
-            "MAE": 0.0198,
-            "MAPE": 13.4,
-            "R2": 0.841,
-            "Dir_Accuracy": 0.681,
+        "Gradient Boosting": {
+            "Accuracy": 71.30,
+            "Precision": 76.04,
+            "Recall": 70.02,
+            "F1": 72.91,
             "color": "#4fc3f7",
         },
-        "GBM": {
-            "RMSE": 0.0214,
-            "MAE": 0.0163,
-            "MAPE": 10.2,
-            "R2": 0.887,
-            "Dir_Accuracy": 0.712,
+        "Random Forest": {
+            "Accuracy": 67.46,
+            "Precision": 66.73,
+            "Recall": 81.77,
+            "F1": 73.49,
             "color": "#ffd54f",
+        },
+        "Support Vector Machine": {
+            "Accuracy": 53.84,
+            "Precision": 54.74,
+            "Recall": 94.24,
+            "F1": 69.25,
+            "color": "#ff8a65",
         },
     }
     return models
@@ -156,9 +165,9 @@ def generate_training_curves(epochs=100):
     return df
 
 
-def generate_data_quality():
-    """Generate data quality metrics over time."""
-    np.random.seed(33)
+def generate_data_quality(asset_seed=33):
+    """Generate data quality metrics over time (asset-specific)."""
+    np.random.seed(asset_seed)
     n = 200
     dates = pd.date_range(end=datetime.today(), periods=n, freq="B")
 

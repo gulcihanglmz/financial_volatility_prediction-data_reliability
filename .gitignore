@@ -12,6 +12,8 @@ data/*.json
 # Models (eğitilmiş modeller - büyük ve local)
 models/*.pkl
 models/*.joblib
+models/*.h5
+models/*.pt
 
 # IDE
 .vscode/
