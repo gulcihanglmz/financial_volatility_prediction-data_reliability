@@ -37,6 +37,22 @@ pip install -r fintech_dashboard/requirements.txt
 streamlit run fintech_dashboard/app.py --server.port 8501
 ```
 
+Docker
+------
+Build the image from the repository root:
+
+```bash
+docker build -t volpred .
+```
+
+Run it locally:
+
+```bash
+docker run --rm -p 8501:8501 volpred
+```
+
+The app will be available at `http://localhost:8501`.
+
 How the app decides data and models
 ----------------------------------
 - If `models/volatility_best_model.pkl` and `models/volatility_scaler.pkl` exist and `joblib` is available, the app will attempt to load and use them for live model outputs.
