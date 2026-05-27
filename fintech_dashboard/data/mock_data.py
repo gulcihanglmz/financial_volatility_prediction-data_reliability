@@ -3,6 +3,7 @@ Mock data generator for the Financial Volatility Prediction Dashboard.
 Simulates realistic financial time series, model outputs, and data quality metrics.
 """
 
+import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -112,10 +113,55 @@ def generate_future_forecast(n_days=30, last_vol=0.18, seed=77):
 
 
 def generate_model_metrics():
-    """Generate model comparison metrics."""
+    """Generate model comparison metrics.
+
+    Prefer loading a CSV `data/volatility_model_comparison.csv` if available
+    (columns: Model,Accuracy,Precision,Recall,F1-Score with values in 0-1).
+    Returns a dict keyed by model name with percentage metrics and a color.
+    Falls back to the embedded summary if the file is not present or parsing fails.
+    """
+    csv_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "data", "volatility_model_comparison.csv")
+    )
+    palette = ["#00d4aa", "#4fc3f7", "#ffd54f", "#ff8a65", "#9b59b6", "#e67e22", "#2ecc71", "#e74c3c"]
+    try:
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            out = {}
+            for i, row in df.iterrows():
+                name = str(row["Model"]).strip()
+                # Some CSVs store metrics in 0-1 range; convert to percentages if so
+                acc = float(row.get("Accuracy", 0.0))
+                prec = float(row.get("Precision", 0.0))
+                rec = float(row.get("Recall", 0.0))
+                f1 = float(row.get("F1-Score", row.get("F1", 0.0)))
+                if acc <= 1.0 and acc > 0.0:
+                    acc *= 100.0
+                if prec <= 1.0 and prec > 0.0:
+                    prec *= 100.0
+                if rec <= 1.0 and rec > 0.0:
+                    rec *= 100.0
+                if f1 <= 1.0 and f1 > 0.0:
+                    f1 *= 100.0
+
+                color = palette[i % len(palette)]
+                out[name] = {
+                    "Accuracy": round(acc, 2),
+                    "Precision": round(prec, 2),
+                    "Recall": round(rec, 2),
+                    "F1": round(f1, 2),
+                    "color": color,
+                }
+            if out:
+                return out
+    except Exception:
+        # fall through to default
+        pass
+
+    # Fallback (kept for backward compatibility)
     models = {
         "Logistic Regression": {
-            "Accuracy": 74.21,
+            "Accuracy": 71.63,
             "Precision": 71.76,
             "Recall": 87.77,
             "F1": 78.96,

@@ -296,7 +296,7 @@ def _classification_metrics() -> dict:
     # Classification results provided from the project's model evaluation table.
     return {
         "Logistic Regression": {
-            "Accuracy": 74.21,
+            "Accuracy": 71.63,
             "Precision": 71.76,
             "Recall": 87.77,
             "F1": 78.96,
@@ -334,6 +334,8 @@ def _compute_live_metrics(vol_df: pd.DataFrame, model_name: str = "PKL Model") -
 def load_data(asset_label: str, counter=0):
     model, scaler, model_status = load_trained_model()
     data_source = "MOCK"
+    # Asset-specific seed so mock data differs per asset when API is unavailable
+    asset_seed = hash(asset_label) % (2 ** 31)
 
     vol_df = None
     if model is not None and scaler is not None:
@@ -344,12 +346,10 @@ def load_data(asset_label: str, counter=0):
             data_source = f"MOCK (fallback: {exc})"
 
     if vol_df is None:
-        price_df = generate_price_series(n=500)
+        price_df = generate_price_series(n=500, seed=asset_seed)
         vol_df = generate_volatility_series(price_df)
-
     forecast_df = generate_future_forecast(n_days=30, last_vol=vol_df["realized_vol"].iloc[-1])
-    # Asset-specific quality data: use hash of asset_label as seed
-    asset_seed = hash(asset_label) % (2**31)
+    # Asset-specific quality data: use same asset_seed
     quality_df = generate_data_quality(asset_seed=asset_seed)
 
     outlier_input = vol_df[["date", "close"]].copy()
@@ -655,6 +655,14 @@ with tab_overview:
 # ─────────────────────────────────────────────────────────────────────────────
 with tab_timeseries:
     st.markdown('<div class="section-header">Price Action & Volatility</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style='font-size:12px;color:#bcd3e6'>
+        Graph shows daily price action (OHLC) for the selected asset. A green candle means the close is above the open (price up); a red candle means the close is below the open (price down). The bars below show trading volume — higher volume typically confirms the price move.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     col_opt1, col_opt2, _, col_dl = st.columns([2, 2, 4, 2])
     with col_opt1:
@@ -669,7 +677,24 @@ with tab_timeseries:
         config={"displayModeBar": True, "toImageButtonOptions": {"filename": "price_chart", "format": "png"}},
     )
 
+    st.markdown(
+        """
+        <div style='font-size:11px;color:#8892b0;margin-top:6px'>
+        Note: Short gaps or unusual candles may be caused by missing data or by the app falling back to mock data when the API is unavailable.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown('<div class="section-header">Realized vs Predicted Volatility</div>', unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style='font-size:12px;color:#bcd3e6'>
+        The white line shows realized (observed) volatility; the colored lines show model predictions (LSTM, ARIMA, GBM) for the same dates. The Y-axis shows annualized volatility in percent. Predictions that lie close to the realized line indicate better model accuracy.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.plotly_chart(
         volatility_comparison_chart(vol_df, st.session_state.dark_mode, ts_period),
         key="volatility_comparison_timeseries",
