@@ -1,9 +1,13 @@
-VolPred — Financial Volatility Dashboard
+Financial Volatility Prediction: Data Reliability Scoring and Chronological Validation
 ======================================
 
 Purpose
 -------
 VolPred is a compact Streamlit dashboard for forecasting financial asset volatility, comparing model performance, and monitoring input data quality. It is intended as a prototype monitoring and decision‑support tool, not a production trading engine.
+
+
+https://github.com/user-attachments/assets/40aa833b-55b8-4540-b202-d505d180623b
+
 
 Features
 --------
