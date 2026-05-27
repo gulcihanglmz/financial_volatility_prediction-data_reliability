@@ -132,15 +132,16 @@ def candlestick_chart(df: pd.DataFrame, dark_mode: bool, period: str = "1Y") -> 
             tickfont=dict(color=t["subtext"], size=10),
             rangeslider=dict(visible=False),
         ),
+        xaxis=dict(title="Date", tickfont=dict(color=t["subtext"], size=10)),
         yaxis=dict(gridcolor=t["grid"], tickprefix="$",
-                   tickfont=dict(color=t["subtext"], size=10)),
+                   tickfont=dict(color=t["subtext"], size=10), title="Price (USD)"),
         yaxis2=dict(gridcolor=t["grid"], tickfont=dict(color=t["subtext"], size=10)),
     )
     fig.update_layout(**layout)
     return fig
 
 
-def volatility_comparison_chart(df: pd.DataFrame, dark_mode: bool, period: str = "1Y") -> go.Figure:
+def volatility_comparison_chart(df: pd.DataFrame, dark_mode: bool, period: str = "1Y", metrics: dict = None) -> go.Figure:
     t = get_theme(dark_mode)
     period_map = {"1D": 1, "1W": 5, "1M": 21, "3M": 63, "1Y": 252, "ALL": len(df)}
     n = min(period_map.get(period, 252), len(df))
@@ -155,24 +156,39 @@ def volatility_comparison_chart(df: pd.DataFrame, dark_mode: bool, period: str =
         fill="tozeroy",
         fillcolor=f"rgba({'40,44,70' if dark_mode else '200,210,240'},0.15)",
     ))
-    fig.add_trace(go.Scatter(
-        x=dff["date"], y=dff["lstm_pred"],
-        name="LSTM Prediction",
-        line=dict(color=t["accent"], width=1.5, dash="solid"),
-    ))
-    fig.add_trace(go.Scatter(
-        x=dff["date"], y=dff["arima_pred"],
-        name="ARIMA Prediction",
-        line=dict(color=t["accent2"], width=1.5, dash="dot"),
-    ))
-    fig.add_trace(go.Scatter(
-        x=dff["date"], y=dff["gbm_pred"],
-        name="GBM Prediction",
-        line=dict(color=t["accent3"], width=1.5, dash="dash"),
-    ))
+    # If metrics provided, plot each model in metrics using its color and a generated column
+    if metrics:
+        dash_styles = ["solid", "dot", "dash", "dashdot", "longdash", "longdashdot"]
+        for i, model_name in enumerate(metrics.keys()):
+            col_safe = model_name.lower().replace(" ", "_").replace("-", "_") + "_pred"
+            if col_safe in dff.columns:
+                color = metrics[model_name].get("color", t["accent2"]) if isinstance(metrics[model_name], dict) else t["accent2"]
+                fig.add_trace(go.Scatter(
+                    x=dff["date"], y=dff[col_safe],
+                    name=str(model_name),
+                    line=dict(color=color, width=1.5, dash=dash_styles[i % len(dash_styles)]),
+                ))
+    else:
+        # Backwards compatible plotting for the three default series
+        fig.add_trace(go.Scatter(
+            x=dff["date"], y=dff["lstm_pred"],
+            name="LSTM Prediction",
+            line=dict(color=t["accent"], width=1.5, dash="solid"),
+        ))
+        fig.add_trace(go.Scatter(
+            x=dff["date"], y=dff["arima_pred"],
+            name="ARIMA Prediction",
+            line=dict(color=t["accent2"], width=1.5, dash="dot"),
+        ))
+        fig.add_trace(go.Scatter(
+            x=dff["date"], y=dff["gbm_pred"],
+            name="GBM Prediction",
+            line=dict(color=t["accent3"], width=1.5, dash="dash"),
+        ))
 
     layout = base_layout(t, height=360)
-    layout["yaxis"].update(tickformat=".1%")
+    layout["xaxis"] = dict(title="Date")
+    layout["yaxis"].update(tickformat=".1%", title="Annualized Volatility (%)")
     fig.update_layout(**layout)
     return fig
 
