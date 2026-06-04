@@ -235,32 +235,31 @@ class FeatureEngineer:
     
     def create_target_variable(self):
         """
-        Create target variable for supervised learning
-        
-        Target: Next day's volatility movement (binary)
-            1 = Volatility will increase (VIX_t+1 > VIX_t)
-            0 = Volatility will stay same or decrease
+        Create target variable for next-day volatility classification.
+
+        Target:
+            1 = next-day rolling volatility is above historical median
+            0 = next-day rolling volatility is below or equal to historical median
         
         Returns:
-            pd.DataFrame: Data with target variable
+            pd.DataFrame: Data with target variable and volatility features
         """
-        print(" Creating Target Variable...")
-        
-        # Predict next-day volatility regime using VIX when available.
-        # This keeps the notebook aligned with the volatility prediction objective
-        # while giving the models a more stable, learnable binary target.
-        if 'VIX' in self.data.columns:
-            vix_baseline = self.data['VIX'].rolling(window=20, min_periods=1).mean()
-            self.features['Target'] = (self.data['VIX'].shift(-1) > vix_baseline).astype(int)
-            target_label = 'volatility'
-        else:
-            # Fallback: use close-to-close direction if volatility proxy is unavailable.
-            self.features['Target'] = (self.data['Close'].shift(-1) > self.data['Close']).astype(int)
-            target_label = 'price'
-        
-        print(f"   ✓ Target variable created (Binary classification)")
-        print(f"     1 = Next-day {target_label} increases, 0 = stays/decreases")
-        
+        print(" Creating Volatility Target Variable...")
+
+        returns = np.log(self.data["Close"] / self.data["Close"].shift(1))
+        rolling_volatility = returns.rolling(window=5).std()
+        median_volatility = rolling_volatility.median()
+
+        self.features["Log_Return"] = returns
+        self.features["Rolling_Volatility"] = rolling_volatility
+        self.features["Target"] = (
+            rolling_volatility.shift(-1) > median_volatility
+        ).astype(int)
+
+        print("   ✓ Volatility target created")
+        print("     1 = Next-day volatility above historical median")
+        print("     0 = Next-day volatility below or equal to historical median")
+
         return self.features
     
     def remove_missing_values(self):

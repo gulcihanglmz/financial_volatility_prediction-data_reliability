@@ -111,9 +111,13 @@ class DataQuality:
             pd.Series: Reliability scores
         
         Calculation:
-            - Base Score: From anomaly score (-1 to 1)
-            - Penalties: For missing values, price gaps, etc.
-            - Final Score: 0-100 scale
+            - Base Score: Normalized Isolation Forest anomaly score (0-100 scale)
+            - Penalties: 
+              * Missing values: -10 points per missing column
+              * Extreme price changes (>2x 95th percentile): -15 points
+              * Zero or negative volume: -20 points
+              * Detected anomaly: -25 points
+            - Final Score: Clipped to 0-100 range
             
         Score Interpretation:
             0-40:   UNRELIABLE    (DO NOT use for prediction)

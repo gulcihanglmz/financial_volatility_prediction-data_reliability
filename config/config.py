@@ -80,6 +80,12 @@ TECHNICAL_INDICATORS = {
     "atr_period": 14,       # Average True Range period
 }
 
+# Data reliability thresholds
+# - RELIABILITY_THRESHOLD: minimum score considered 'reliable' for automatic inference
+# - CRITICAL_RELIABILITY: below this score we suspend automatic predictions
+RELIABILITY_THRESHOLD = 70
+CRITICAL_RELIABILITY = 50
+
 
 # 5. APACHE AIRFLOW SCHEDULER
 # Configuration for automated pipeline execution

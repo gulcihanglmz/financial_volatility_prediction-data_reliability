@@ -69,12 +69,8 @@ def add_lag_features(df, lags=[1, 2, 3]):
 
 data_with_lags = add_lag_features(data_engineered.copy())
 
-# Create volatility target
-data_with_lags['Volatility_Target'] = (data_with_lags['Close'].pct_change().rolling(5).std() > 
-                                        data_with_lags['Close'].pct_change().rolling(5).std().median()).astype(int)
-
-X = data_with_lags.drop(['Target', 'Volatility_Target'], axis=1)
-y_volatility = data_with_lags['Volatility_Target']
+X = data_with_lags.drop(["Target"], axis=1)
+y_volatility = data_with_lags["Target"]
 
 # Chronological train/test split
 split_idx = int(len(X) * 0.8)
@@ -152,6 +148,11 @@ print(f"\n   ✓ Results saved to: data/volatility_prediction_results.csv")
 model_obj = models[best_model_name]
 joblib.dump(model_obj, 'models/volatility_best_model.pkl')
 joblib.dump(scaler, 'models/volatility_scaler.pkl')
+joblib.dump(list(X_train.columns), 'models/feature_columns.pkl')
+
+print(f"   ✓ Model saved to: models/volatility_best_model.pkl")
+print(f"   ✓ Scaler saved to: models/volatility_scaler.pkl")
+print(f"   ✓ Feature columns saved to: models/feature_columns.pkl")
 print(f"   ✓ Best model saved: models/volatility_best_model.pkl")
 print(f"   ✓ Scaler saved: models/volatility_scaler.pkl")
 

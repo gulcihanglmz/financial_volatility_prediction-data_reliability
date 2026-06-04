@@ -103,13 +103,13 @@ class DataIngestion:
             print("No data was collected!")
             return None
     
-    def save_to_csv(self, df, filepath="data/raw_data.csv"):
+    def save_to_csv(self, df, filepath="data/nasdq.csv"):
         """
         Save DataFrame to CSV file
         
         Args:
             df (pd.DataFrame): DataFrame to save
-            filepath (str): Where to save the file (default: "data/raw_data.csv")
+            filepath (str): Where to save the file (default: "data/nasdq.csv")
         
         Returns:
             bool: True if successful, False otherwise

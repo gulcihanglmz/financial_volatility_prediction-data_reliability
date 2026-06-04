@@ -91,7 +91,7 @@ class DataLoader:
         initial_missing = self.data.isnull().sum().sum()
         if initial_missing > 0:
             print(f"  Found {initial_missing} missing values")
-            self.data.fillna(method='ffill', inplace=True)  # Forward fill
+            self.data.ffill(inplace=True)  # Forward fill
             print(f"✓ Missing values filled using forward fill")
         else:
             print("✓ No missing values found")

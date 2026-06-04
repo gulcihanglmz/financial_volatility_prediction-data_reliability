@@ -3,6 +3,7 @@ venv/
 env/
 *.egg-info/
 __pycache__/
+*.pyc
 
 # Data files (CSV'ler)
 data/*.csv
