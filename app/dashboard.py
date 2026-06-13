@@ -1,6 +1,8 @@
-import sys
+# dashboard.py
+
 import os
 import random
+import sys
 import joblib
 import pandas as pd
 import streamlit as st
@@ -14,65 +16,78 @@ from src.data_quality import DataQuality
 
 
 st.set_page_config(
-    page_title="Financial Volatility Prediction: Data Reliability Scoring and Chronological Validation",
+    page_title="Financial Volatility Decision Support System",
     layout="wide"
 )
 
-st.title("Financial Volatility Prediction: Data Reliability Scoring and Chronological Validation")
-st.caption("Risk-Oriented Decision Support System with Data Reliability Scoring")
-
-st.info(
-    "This dashboard simulates incoming market data by selecting different historical input samples. "
-    "For each selected input, the system shows the volatility forecast and the Data Reliability Score."
-)
-
-
-@st.cache_data
-def load_processed_data():
-    loader = DataLoader("data/nasdq.csv")
-    raw_data = loader.load_csv()
-    raw_data = loader.preprocess()
-
-    engineer = FeatureEngineer(raw_data)
-    features = engineer.apply_all_features()
-
-    quality = DataQuality(features)
-    quality.detect_anomalies()
-    quality.calculate_reliability_score()
-
-    quality_data = quality.get_data()
-    return raw_data, quality_data
-
-
-def add_lag_features(df, lags=[1, 2, 3]):
-    lag_df = df.copy()
-    features_to_lag = ["Close", "Volume", "MA_5", "MA_20", "RSI", "MACD"]
-
-    for feature in features_to_lag:
-        if feature in lag_df.columns:
-            for lag in lags:
-                lag_df[f"{feature}_lag{lag}"] = lag_df[feature].shift(lag)
-
-    return lag_df.dropna()
+st.title("Financial Volatility Decision Support System")
+st.caption("Next-Day Volatility Prediction with Dynamic Data Reliability Scoring")
 
 
 @st.cache_resource
 def load_model_files():
-    model = joblib.load("models/volatility_best_model.pkl")
-    scaler = joblib.load("models/volatility_scaler.pkl")
+    model = joblib.load(r"D:\fintech\models\volatility_best_model.pkl")
+    scaler = joblib.load(r"D:\fintech\models\volatility_scaler.pkl")
     return model, scaler
+
+
+@st.cache_data
+def prepare_dataset():
+    loader = DataLoader(r"D:\fintech\data\nasdq.csv")
+    raw_data = loader.load_csv()
+    raw_data = loader.preprocess()
+
+    engineer = FeatureEngineer(raw_data)
+    feature_data = engineer.apply_all_features()
+
+    quality = DataQuality(feature_data)
+    quality.detect_anomalies()
+    quality.calculate_reliability_score()
+
+    return raw_data, quality.get_data()
+
+
+def add_lag_features(df, lags=[1, 2, 3]):
+    df = df.copy()
+    lag_columns = ["Close", "Volume", "MA_5", "MA_20", "RSI", "MACD"]
+
+    for col in lag_columns:
+        if col in df.columns:
+            for lag in lags:
+                df[f"{col}_lag{lag}"] = df[col].shift(lag)
+
+    return df.dropna()
 
 
 def reliability_status(score):
     if score >= 90:
-        return "High"
+        return "High Reliability"
     elif score >= 70:
-        return "Moderate"
+        return "Acceptable Reliability"
     elif score >= 50:
-        return "Low"
-    return "Critical"
+        return "Warning"
+    return "Unreliable"
 
-def create_reliability_gauge(score):
+
+def decision_message(score):
+
+    if score >= 70:
+        return (
+            "Prediction Accepted. "
+            "Input data passed the reliability threshold."
+        )
+    elif score >= 50:
+        return (
+            "Prediction Generated With Warning. "
+            "Input quality is moderate."
+        )
+    else:
+        return (
+            "Prediction Rejected. "
+            "Input data failed the reliability threshold."
+        )
+    
+def reliability_gauge(score):
     fig = go.Figure(
         go.Indicator(
             mode="gauge+number",
@@ -81,90 +96,73 @@ def create_reliability_gauge(score):
             title={"text": "Data Reliability Score"},
             gauge={
                 "axis": {"range": [0, 100]},
-                "bar": {"color": "white"},
+                "bar": {"color": "#00E5FF"},
                 "steps": [
                     {"range": [0, 50], "color": "#7f1d1d"},
                     {"range": [50, 70], "color": "#9a3412"},
                     {"range": [70, 90], "color": "#854d0e"},
                     {"range": [90, 100], "color": "#14532d"},
                 ],
-                "threshold": {
-                    "line": {"color": "white", "width": 4},
-                    "thickness": 0.75,
-                    "value": score,
-                },
             },
         )
     )
-
-    fig.update_layout(
-        height=260,
-        margin=dict(l=20, r=20, t=50, b=20),
-    )
-
+    fig.update_layout(height=280, margin=dict(l=20, r=20, t=40, b=20))
     return fig
 
 
-def choose_sample(model_data, scenario):
-    if scenario == "Random Incoming Data":
-        return model_data.sample(1)
-
-    if scenario == "Reliable Incoming Data":
-        subset = model_data[model_data["reliability_score"] >= 90]
-        if subset.empty:
-            subset = model_data.sort_values("reliability_score", ascending=False).head(50)
-        return subset.sample(1)
-
-    if scenario == "Moderate Incoming Data":
-        subset = model_data[
-            (model_data["reliability_score"] >= 70)
-            & (model_data["reliability_score"] < 90)
-        ]
-        if subset.empty:
-            subset = model_data.iloc[
-                (model_data["reliability_score"] - 75).abs().argsort()
-            ].head(50)
-        return subset.sample(1)
-
-    if scenario == "Unreliable Incoming Data":
-        subset = model_data[model_data["reliability_score"] < 50]
-        if subset.empty:
-            subset = model_data.sort_values("reliability_score", ascending=True).head(50)
-        return subset.sample(1)
-
-    return model_data.iloc[-1:]
-
-
 try:
-    raw_data, quality_data = load_processed_data()
     model, scaler = load_model_files()
+    raw_data, quality_data = prepare_dataset()
     model_data = add_lag_features(quality_data)
 
     with st.sidebar:
-        st.header("Incoming Data Simulation")
-        scenario = st.selectbox(
-            "Select data type",
+        if st.button("Generate New Incoming Data"):
+            st.session_state["sample_seed"] = random.randint(1, 999999)
+            
+        st.markdown("### Data Source")
+        st.info(
+            "Training and evaluation: NASDAQ historical dataset\n\n"
+            "Updated prediction input: Yahoo Finance API (yfinance)"
+        )
+
+        st.header("Incoming Market Data")
+        mode = st.selectbox(
+            "Select Input Mode",
             [
-                "Latest Market Data",
-                "Random Incoming Data",
-                "Reliable Incoming Data",
-                "Moderate Incoming Data",
-                "Unreliable Incoming Data"
+                "Latest Valid Market Data",
+                "Random Historical Sample",
+                "High Reliability Historical Sample",
+                "Low Reliability Historical Sample"
             ]
         )
 
-        if st.button("Generate Incoming Data"):
-            st.session_state["random_seed"] = random.randint(1, 999999)
+    if mode == "Latest Valid Market Data":
+        valid_latest_data = model_data[
+            model_data["reliability_score"].notna() &
+            (model_data["reliability_score"] >= 50) &
+            model_data["Close"].notna()
+        ]
 
-    if "random_seed" not in st.session_state:
-        st.session_state["random_seed"] = 42
+        selected_row = valid_latest_data.tail(1)
 
-    random.seed(st.session_state["random_seed"])
+    elif mode == "Random Historical Sample":
+        if "sample_seed" not in st.session_state:
+            st.session_state["sample_seed"] = 42
 
-    selected_row = choose_sample(model_data, scenario)
+        selected_row = model_data.sample(1, random_state=st.session_state["sample_seed"])
+    
+    elif mode == "High Reliability Historical Sample":
+        high_data = model_data[model_data["reliability_score"] >= 90]
+        selected_row = high_data.sample(1) if not high_data.empty else model_data.sort_values("reliability_score", ascending=False).head(1)
+    else:
+        low_data = model_data[model_data["reliability_score"] < 70]
+        selected_row = low_data.sample(1) if not low_data.empty else model_data.sort_values("reliability_score", ascending=True).head(1)
+
     selected_date = selected_row.index[0]
+    selected_date_str = selected_date.strftime("%Y-%m-%d")
+
     reliability_score = float(selected_row["reliability_score"].iloc[0])
-    status = reliability_status(reliability_score)
+    reliability_label = reliability_status(reliability_score)
 
     exclude_cols = [
         "Target",
@@ -184,211 +182,289 @@ try:
     prediction = model.predict(X_scaled)[0]
     prediction_label = "High Volatility" if prediction == 1 else "Low Volatility"
 
-    if hasattr(model, "predict_proba"):
-        confidence = max(model.predict_proba(X_scaled)[0]) * 100
-    else:
-        confidence = None
+    confidence = None
+    proba_df = None
 
-    st.subheader("Next-Day Volatility Forecast")
+    if hasattr(model, "predict_proba"):
+        proba = model.predict_proba(X_scaled)[0]
+        confidence = max(proba) * 100
+
+        proba_df = pd.DataFrame({
+            "Class": ["Low Volatility", "High Volatility"],
+            "Probability": [proba[0] * 100, proba[1] * 100]
+        })
+
+    st.subheader("Executive Decision Summary")
+    st.caption(
+        "Each selected market observation is processed dynamically. "
+        "The reliability score and next-day volatility forecast are recalculated for the selected input."
+    )
 
     col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Next-Day Forecast", prediction_label)
+    col2.metric("Model Confidence", f"{confidence:.1f}%" if confidence is not None else "N/A")
+    col3.metric("Reliability Status", reliability_label)
+    # col4.metric("Input Date", selected_date_str)
 
-    with col1:
-        st.metric("Forecast", prediction_label)
+    gauge_col, decision_col = st.columns([1.2, 1])
 
-    with col2:
-        st.metric("Model Confidence", f"{confidence:.1f}%" if confidence is not None else "N/A")
+    with gauge_col:
+        st.plotly_chart(reliability_gauge(reliability_score), use_container_width=True)
 
-    with col3:
-        st.plotly_chart(
-            create_reliability_gauge(reliability_score),
-            use_container_width=True
+    with decision_col:
+        st.subheader("System Decision")
+        st.markdown("### Decision Policy")
+        
+        policy_df = pd.DataFrame({
+            "Reliability Range": ["0-49", "50-69", "70-100"],
+            "System Action": [
+                "Prediction Rejected",
+                "Prediction With Warning",
+                "Prediction Accepted"
+            ]
+        })
+
+        st.info("""
+        Decision Rules
+
+        • Reliability < 50  → Prediction Rejected
+
+        • Reliability 50-69 → Warning
+
+        • Reliability ≥ 70 → Prediction Accepted
+        """)
+
+        st.dataframe(
+            policy_df,
+            use_container_width=True,
+            hide_index=True
         )
+        st.write(f"**Forecast:** {prediction_label}")
+        st.write(f"**Reliability Score:** {reliability_score:.1f}/100")
+        st.write(f"**Reliability Status:** {reliability_label}")
+        st.write(f"**Decision Message:** {decision_message(reliability_score)}")
 
-        if reliability_score >= 90:
-            st.success("High reliability")
-        elif reliability_score >= 70:
-            st.warning("Moderate reliability")
-        elif reliability_score >= 50:
-            st.warning("Low reliability")
-        else:
-            st.error("Critical reliability")
-
-    with col4:
-        st.metric("Input Date", selected_date.strftime("%Y-%m-%d"))
-
-    if reliability_score >= 90:
-        st.success("High reliability: the input data is strongly suitable for prediction.")
-    elif reliability_score >= 70:
-        st.warning("Moderate reliability: the prediction can be interpreted with caution.")
+    if reliability_score >= 70:
+        st.success(decision_message(reliability_score))
     elif reliability_score >= 50:
-        st.warning("Low reliability: the input data may contain abnormal patterns.")
+        st.warning(decision_message(reliability_score))
     else:
-        st.error("Critical reliability: the prediction may not be reliable.")
+        st.error(decision_message(reliability_score))
 
     st.divider()
 
-    st.subheader("Incoming Data Explanation")
+    st.subheader("System Workflow")
+    st.markdown(
+        """
+        **Incoming Market Data → Feature Engineering → Reliability Assessment → Volatility Prediction → Decision Support**
 
-    st.write(
-        f"Selected scenario: **{scenario}**. "
-        f"The system selected one input sample from the processed NASDAQ dataset, calculated its Data Reliability Score, "
-        f"and produced a next-day volatility prediction. This demonstrates how the system reacts to different data-quality conditions."
+        For each selected market observation, technical indicators are calculated, 
+        the reliability of the input is evaluated using Isolation Forest, 
+        and the trained Logistic Regression model generates the next-day volatility forecast.
+        """
     )
 
     st.divider()
 
-    st.subheader("Market and Reliability Trends")
+    col_a, col_b = st.columns(2)
 
-    col_price, col_reliability = st.columns(2)
+    with col_a:
+        st.subheader("NASDAQ Closing Price")
 
-    with col_price:
-        st.write("**NASDAQ Closing Price**")
+        price_data = raw_data.copy()
+        price_data["Date"] = price_data.index.strftime("%Y-%m-%d")
 
-        price_plot = raw_data.tail(500)
-
-        price_fig = go.Figure()
-        price_fig.add_trace(
+        fig_price = go.Figure()
+        fig_price.add_trace(
             go.Scatter(
-                x=price_plot.index,
-                y=price_plot["Close"],
+                x=price_data["Date"],
+                y=price_data["Close"],
                 mode="lines",
-                name="Close Price",
-                line=dict(color="steelblue", width=2)
+                name="Close Price"
             )
         )
 
-        price_fig.update_layout(
+        if "Close" in selected_row.columns:
+            fig_price.add_trace(
+                go.Scatter(
+                    x=[selected_date_str],
+                    y=[float(selected_row["Close"].iloc[0])],
+                    mode="markers",
+                    marker=dict(color="red", size=12),
+                    name="Selected Input"
+                )
+            )
+
+        fig_price.update_layout(
+            height=350,
             xaxis_title="Date",
             yaxis_title="Close Price",
-            height=300,
-            margin=dict(l=0, r=0, t=20, b=0),
-            hovermode="x unified"
+            hovermode="x unified",
+            margin=dict(l=10, r=10, t=30, b=10)
         )
 
-        st.plotly_chart(price_fig, use_container_width=True)
+        st.plotly_chart(fig_price, use_container_width=True)
 
-    with col_reliability:
-        st.write("**Data Reliability Score Over Time**")
+    with col_b:
+        st.subheader("Reliability Score Over Time")
+        reliability_data = model_data.copy()
+        reliability_data["Date"] = reliability_data.index.strftime("%Y-%m-%d")
 
-        reliability_plot = model_data.tail(500)
-
-        reliability_fig = go.Figure()
-        reliability_fig.add_trace(
+        fig_rel = go.Figure()
+        fig_rel.add_trace(
             go.Scatter(
-                x=reliability_plot.index,
-                y=reliability_plot["reliability_score"],
+                x=reliability_data["Date"],
+                y=reliability_data["reliability_score"],
                 mode="lines",
                 name="Reliability Score",
-                line=dict(color="darkorange", width=2),
-                fill="tozeroy",
-                fillcolor="rgba(255, 165, 0, 0.2)"
+                fill="tozeroy"
             )
         )
 
-        reliability_fig.add_hline(
+        fig_rel.add_hline(
             y=70,
             line_dash="dash",
             line_color="orange",
-            annotation_text="Caution Threshold"
+            annotation_text="Reliability Threshold (70)"
         )
 
-        reliability_fig.add_hline(
-            y=90,
-            line_dash="dash",
-            line_color="green",
-            annotation_text="High Reliability"
+        fig_rel.add_trace(
+            go.Scatter(
+                x=[selected_date_str],
+                y=[reliability_score],
+                mode="markers",
+                marker=dict(color="red", size=12),
+                name="Selected Input"
+            )
         )
 
-        reliability_fig.update_layout(
+        fig_rel.update_layout(
+            height=350,
             xaxis_title="Date",
             yaxis_title="Reliability Score",
             yaxis=dict(range=[0, 105]),
-            height=300,
-            margin=dict(l=0, r=0, t=20, b=0),
-            hovermode="x unified"
+            hovermode="x unified",
+            margin=dict(l=10, r=10, t=30, b=10)
         )
 
-        st.plotly_chart(reliability_fig, use_container_width=True)
+        st.plotly_chart(fig_rel, use_container_width=True)
 
     st.divider()
 
-    st.subheader("Volatility Prediction History")
+    if proba_df is not None:
+        st.subheader("Volatility Risk Probability")
 
-    history_data = model_data.tail(30)
-    history_rows = []
+        low_prob = float(proba_df.loc[proba_df["Class"] == "Low Volatility", "Probability"].iloc[0])
+        high_prob = float(proba_df.loc[proba_df["Class"] == "High Volatility", "Probability"].iloc[0])
 
-    for idx in history_data.index:
-        row = model_data.loc[idx:idx, feature_columns]
-        X_hist_scaled = scaler.transform(row)
-        pred_hist = model.predict(X_hist_scaled)[0]
+    st.caption(
+        "The model estimates the probability of each next-day volatility scenario. "
+        "The final forecast is selected based on the higher probability."
+    )
 
-        history_rows.append({
-            "Date": idx.strftime("%Y-%m-%d"),
-            "PredictionValue": 1 if pred_hist == 1 else 0,
-            "PredictionLabel": "High" if pred_hist == 1 else "Low"
-        })
+    p1, p2, p3 = st.columns([1, 1, 1.2])
 
-    history_df = pd.DataFrame(history_rows)
+    with p1:
+        st.metric("Low Volatility Probability", f"{low_prob:.1f}%")
+        st.progress(min(low_prob / 100, 1.0))
 
-    history_fig = go.Figure()
-    history_fig.add_trace(
-        go.Bar(
-            x=history_df["Date"],
-            y=history_df["PredictionValue"],
-            text=history_df["PredictionLabel"],
-            textposition="outside",
-            name="Prediction"
+    with p2:
+        st.metric("High Volatility Probability", f"{high_prob:.1f}%")
+        st.progress(min(high_prob / 100, 1.0))
+
+    with p3:
+        risk_value = high_prob
+
+        fig_risk = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=risk_value,
+                number={"suffix": "%"},
+                title={"text": "High Volatility Risk"},
+                gauge={
+                    "axis": {"range": [0, 100]},
+                    "bar": {"color": "#ef4444" if risk_value >= 50 else "#22c55e"},
+                    "steps": [
+                        {"range": [0, 35], "color": "#14532d"},
+                        {"range": [35, 60], "color": "#854d0e"},
+                        {"range": [60, 100], "color": "#7f1d1d"},
+                    ],
+                    "threshold": {
+                        "line": {"color": "white", "width": 4},
+                        "thickness": 0.75,
+                        "value": 50,
+                    },
+                },
+            )
         )
-    )
 
-    history_fig.update_layout(
-        xaxis_title="Date",
-        yaxis_title="Volatility Class",
-        yaxis=dict(
-            tickmode="array",
-            tickvals=[0, 1],
-            ticktext=["Low", "High"]
-        ),
-        height=300,
-        margin=dict(l=0, r=0, t=20, b=0)
-    )
+        fig_risk.update_layout(
+            height=260,
+            margin=dict(l=20, r=20, t=40, b=20)
+        )
 
-    st.plotly_chart(history_fig, use_container_width=True)
+        st.plotly_chart(fig_risk, use_container_width=True)
+
+    if high_prob >= 60:
+        st.error(
+            f"Risk Signal: High volatility risk is dominant with {high_prob:.1f}% probability."
+        )
+    elif high_prob >= 40:
+        st.warning(
+            f"Risk Signal: The model is uncertain. High volatility probability is {high_prob:.1f}%."
+        )
+    else:
+        st.success(
+            f"Risk Signal: Low volatility scenario is dominant. High volatility probability is only {high_prob:.1f}%."
+        )
 
     st.divider()
 
-    st.subheader("Recent Data Samples")
+    st.subheader("Prediction Drivers")
 
-    sample_table = model_data[
-        ["Close", "Volume", "reliability_score", "is_anomaly"]
-    ].tail(10).copy()
+    driver_cols = [col for col in ["ATR", "RSI", "MACD"] if col in selected_row.columns]
 
-    sample_table["Reliability Status"] = sample_table["reliability_score"].apply(reliability_status)
+    if driver_cols:
+        d1, d2, d3 = st.columns(3)
 
-    st.dataframe(
-        sample_table.reset_index(),
-        use_container_width=True,
-        hide_index=True
-    )
+        for box, col in zip([d1, d2, d3], driver_cols):
+            box.metric(col, f"{float(selected_row[col].iloc[0]):.4f}")
+
+        st.caption(
+            "ATR represents volatility, RSI represents market momentum, and MACD represents trend and momentum behavior."
+        )
+
+    st.divider()
+
+    st.subheader("Selected Input Feature Snapshot")
+
+    selected_features = [
+        col for col in ["ATR", "RSI", "MACD", "MA_5", "MA_20", "Volume", "Close"]
+        if col in selected_row.columns
+    ]
+
+    feature_snapshot = selected_row[selected_features].T
+    feature_snapshot.columns = ["Value"]
+
+    st.dataframe(feature_snapshot, use_container_width=True)
 
     st.divider()
 
     st.subheader("Model Performance Summary")
 
-    results_path = "data/volatility_prediction_results.csv"
+    results_path = r"D:\fintech\data\volatility_prediction_results.csv"
 
     if os.path.exists(results_path):
         results_df = pd.read_csv(results_path)
         st.dataframe(results_df, use_container_width=True, hide_index=True)
     else:
-        st.info("Model results file not found. Run `python src/run_volatility_analysis.py` first.")
+        st.info("Model performance file was not found.")
 
     st.divider()
 
     st.caption(
-        "This dashboard is a risk-oriented decision-support interface. "
-        "It does not provide direct trading recommendations."
+        "This dashboard is designed as a risk-oriented decision-support system. "
+        "It does not provide direct investment or trading advice."
     )
 
 except Exception as e:
